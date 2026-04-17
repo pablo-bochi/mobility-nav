@@ -1,3 +1,2 @@
-fastapi[standard]
 dash==2.18.2
 dash-leaflet==1.0.15
