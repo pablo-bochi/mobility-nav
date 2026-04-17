@@ -14,6 +14,8 @@ app.layout = html.Div(
     children=[
         dcc.Store(id="search-results-store"),
         dcc.Store(id="selected-place-store"),
+        dcc.Store(id="origin-store"),
+        dcc.Store(id="destination-store"),
 
         html.H1("mobility-nav", style={"marginBottom": "8px"}),
         html.P(
@@ -62,6 +64,19 @@ app.layout = html.Div(
         ),
 
         html.Div(
+            children=[
+                html.Button("Definir como origem", id="set-origin-button", n_clicks=0),
+                html.Button(
+                    "Definir como destino",
+                    id="set-destination-button",
+                    n_clicks=0,
+                    style={"marginLeft": "8px"},
+                ),
+            ],
+            style={"marginBottom": "16px"},
+        ),
+
+        html.Div(
             id="search-feedback",
             style={
                 "marginBottom": "12px",
@@ -72,8 +87,26 @@ app.layout = html.Div(
         html.Div(
             id="selected-place-output",
             style={
+                "marginBottom": "12px",
+                "fontWeight": "bold",
+            },
+        ),
+
+        html.Div(
+            id="origin-output",
+            style={
+                "marginBottom": "8px",
+                "fontWeight": "bold",
+                "color": "#1d4ed8",
+            },
+        ),
+
+        html.Div(
+            id="destination-output",
+            style={
                 "marginBottom": "16px",
                 "fontWeight": "bold",
+                "color": "#dc2626",
             },
         ),
 
@@ -83,7 +116,7 @@ app.layout = html.Div(
             zoom=DEFAULT_ZOOM,
             children=[
                 dl.TileLayer(),
-                dl.LayerGroup(id="selected-place-layer"),
+                dl.LayerGroup(id="places-layer"),
             ],
             style={
                 "width": "100%",
@@ -166,28 +199,96 @@ def select_place(selected_index, results):
 
 @app.callback(
     Output("selected-place-output", "children"),
-    Output("selected-place-layer", "children"),
     Output("map", "zoom"),
     Input("selected-place-store", "data"),
 )
 def update_selected_place(place):
     if not place:
-        return "Nenhum local selecionado.", [], DEFAULT_ZOOM
+        return "Nenhum local selecionado.", DEFAULT_ZOOM
 
-    lat = place["lat"]
-    lng = place["lng"]
     name = place["name"]
+    return f"Local selecionado: {name}", SELECTED_PLACE_ZOOM
 
-    marker = dl.Marker(
-        position=[lat, lng],
-        children=[dl.Popup(name)],
-    )
 
-    return (
-        f"Local selecionado: {name}",
-        [marker],
-        SELECTED_PLACE_ZOOM,
-    )
+@app.callback(
+    Output("origin-store", "data"),
+    Input("set-origin-button", "n_clicks"),
+    State("selected-place-store", "data"),
+    State("origin-store", "data"),
+)
+def set_origin(n_clicks, selected_place, current_origin):
+    if not n_clicks:
+        return current_origin
+
+    if not selected_place:
+        return current_origin
+
+    return selected_place
+
+
+@app.callback(
+    Output("destination-store", "data"),
+    Input("set-destination-button", "n_clicks"),
+    State("selected-place-store", "data"),
+    State("destination-store", "data"),
+)
+def set_destination(n_clicks, selected_place, current_destination):
+    if not n_clicks:
+        return current_destination
+
+    if not selected_place:
+        return current_destination
+
+    return selected_place
+
+
+@app.callback(
+    Output("origin-output", "children"),
+    Input("origin-store", "data"),
+)
+def show_origin(origin):
+    if not origin:
+        return "Origem: não definida"
+
+    return f"Origem: {origin['name']}"
+
+
+@app.callback(
+    Output("destination-output", "children"),
+    Input("destination-store", "data"),
+)
+def show_destination(destination):
+    if not destination:
+        return "Destino: não definido"
+
+    return f"Destino: {destination['name']}"
+
+
+@app.callback(
+    Output("places-layer", "children"),
+    Input("origin-store", "data"),
+    Input("destination-store", "data"),
+)
+def update_markers(origin, destination):
+    markers = []
+
+    if origin:
+        markers.append(
+            dl.Marker(
+                position=[origin["lat"], origin["lng"]],
+                children=[dl.Popup(f"Origem: {origin['name']}")],
+            )
+        )
+
+    if destination:
+        markers.append(
+            dl.Marker(
+                position=[destination["lat"], destination["lng"]],
+                children=[dl.Popup(f"Destino: {destination['name']}")],
+            )
+        )
+
+    return markers
 
 
 if __name__ == "__main__":
