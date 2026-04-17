@@ -1,7 +1,7 @@
-from dash import Dash, html, Input, Output
+from dash import Dash, html, dcc, Input, Output, State
 import dash_leaflet as dl
 
-from services.backend_client import get_health
+from services.backend_client import get_health, search_places
 
 app = Dash(__name__)
 app.title = "mobility-nav"
@@ -18,10 +18,24 @@ app.layout = html.Div(
             id="health-output",
             style={
                 "marginTop": "12px",
-                "marginBottom": "12px",
+                "marginBottom": "20px",
                 "fontWeight": "bold",
             },
         ),
+
+        html.H3("Buscar lugar"),
+        dcc.Input(
+            id="place-query",
+            type="text",
+            placeholder="Digite um endereço ou lugar",
+            style={"width": "300px", "marginRight": "8px"},
+        ),
+        html.Button("Buscar", id="search-button", n_clicks=0),
+        html.Div(
+            id="search-results",
+            style={"marginTop": "16px", "marginBottom": "20px"},
+        ),
+
         dl.Map(
             center=[-23.5505, -46.6333],
             zoom=11,
@@ -30,7 +44,7 @@ app.layout = html.Div(
             ],
             style={
                 "width": "100%",
-                "height": "75vh",
+                "height": "70vh",
                 "borderRadius": "12px",
             },
         ),
@@ -55,6 +69,36 @@ def check_backend_health(n_clicks):
         return f"Backend respondeu com sucesso: {data}"
     except Exception as exc:
         return f"Erro ao chamar backend: {exc}"
+
+
+@app.callback(
+    Output("search-results", "children"),
+    Input("search-button", "n_clicks"),
+    State("place-query", "value"),
+)
+def handle_place_search(n_clicks, query):
+    if not n_clicks:
+        return "Nenhuma busca realizada."
+
+    if not query or len(query.strip()) < 2:
+        return "Digite pelo menos 2 caracteres para buscar."
+
+    try:
+        results = search_places(query.strip())
+
+        if not results:
+            return "Nenhum resultado encontrado."
+
+        return html.Ul(
+            [
+                html.Li(
+                    f"{item['name']} (lat: {item['lat']}, lng: {item['lng']})"
+                )
+                for item in results
+            ]
+        )
+    except Exception as exc:
+        return f"Erro ao buscar lugares: {exc}"
 
 
 if __name__ == "__main__":
